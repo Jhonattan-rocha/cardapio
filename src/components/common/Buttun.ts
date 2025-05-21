@@ -39,7 +39,7 @@ export const Button = styled.button<{ $variant?: 'primary' | 'secondary' | 'dang
   }
 `;
 
-export const IconButton = styled(Button)`
+export const IconButton = styled(Button)<{ size?: number }>`
   padding: 8px;
   display: inline-flex;
   align-items: center;

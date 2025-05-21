@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import type { Cardapio, CardapioSecao, CardapioItem } from '../types/cardapioTypes';
 import { Button, IconButton } from '../components/common/Buttun';
 import { FaArrowLeft, FaPlus, FaImage, FaList, FaHeading, FaBars, FaTrashAlt, FaEdit, FaSave, FaFilePdf } from 'react-icons/fa';
+import { Modal, ModalContent } from '../styles/GlobalStyles';
 
 // Importe uma biblioteca de editor de texto rica aqui (ex: ReactQuill)
 // import ReactQuill from 'react-quill';
@@ -573,31 +574,3 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
 };
 
 export default ConstrutorCardapio;
-
-// Estilos básicos para o Modal (poderia ser um componente separado)
-const Modal = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-`;
-
-const ModalContent = styled.div`
-  background-color: var(--surface-color);
-  padding: var(--spacing-lg);
-  border-radius: var(--border-radius);
-  box-shadow: var(--box-shadow);
-  width: 90%;
-  max-width: 500px;
-
-  h3 {
-    margin-bottom: var(--spacing-lg);
-    color: var(--primary-color);
-  }
-`;
