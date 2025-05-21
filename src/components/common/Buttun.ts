@@ -2,7 +2,7 @@
 
 import styled from 'styled-components';
 
-export const Button = styled.button<{ $variant?: 'primary' | 'secondary' | 'danger' | 'outline'; $fullWidth?: boolean }>`
+export const Button = styled.button<{ $variant?: 'primary' | 'secondary' | 'danger' | 'outline' | 'info'; $fullWidth?: boolean; size?:string }>`
   background-color: ${props => {
     switch (props.$variant) {
       case 'primary': return 'var(--primary-color)';

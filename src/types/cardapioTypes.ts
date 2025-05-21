@@ -3,29 +3,43 @@
 export interface CardapioItem {
   id: string;
   nome: string;
-  descricao: string;
+  descricao?: string;
   preco: number;
-  imagemUrl?: string; // URL da imagem, se houver
-  tags?: string[]; // Ex: 'Vegetariano', 'Vegano', 'Gluten Free'
+  imagemUrl?: string; // Pode ser URL externa ou Data URL para preview/PDF
+  tags?: string[];
+  alergenicos?: string[];
+  disponivel?: boolean; // Default: true
+  ordem?: number;
 }
 
 export interface CardapioSecao {
   id: string;
-  titulo: string;
-  tipo: 'titulo' | 'texto' | 'item' | 'imagem' | 'lista'; // Tipos de conteúdo
+  ordem: number;
+  titulo?: string;
+  tipo: 'titulo' | 'texto' | 'item' | 'imagem' | 'lista';
+  descricao?: string;
+
   // Conteúdo específico para cada tipo
-  texto?: string;
-  items?: CardapioItem[];
-  imagemUrl?: string;
-  listaItems?: string[]; // Para listas simples
+  texto?: string; // HTML do ReactQuill para 'texto'
+  items?: CardapioItem[]; // Para 'item'
+  imagemUrl?: string; // Pode ser URL externa ou Data URL para preview/PDF
+  legendaImagem?: string;
+  listaItems?: string[]; // Para 'lista'
+  layoutItem?: 'lista' | 'grade-2-colunas' | 'grade-3-colunas'; // Para seções de 'item'
 }
 
 export interface Cardapio {
   id: string;
   nome: string;
   descricaoBreve?: string;
-  categoria?: string; // Ex: 'Almoço', 'Jantar'
+  categoria?: string;
   status: 'rascunho' | 'publicado' | 'inativo';
   ultimaAtualizacao: string; // Formato de data (ISO string)
-  conteudo: CardapioSecao[]; // Array de seções que compõem o cardápio
+  conteudo: CardapioSecao[];
+
+  // Novas propriedades
+  logoUrl?: string; // Pode ser URL externa ou Data URL
+  informacoesAdicionais?: string;
+  moeda?: string; // Default 'BRL'. Ex: "BRL", "USD", "EUR"
+  tema?: string;
 }
