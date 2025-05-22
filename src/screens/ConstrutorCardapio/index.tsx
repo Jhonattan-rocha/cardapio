@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { DragDropContext, Droppable, Draggable, type DropResult } from 'react-beautiful-dnd';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 import jsPDF from 'jspdf';
 
 import type { Cardapio, CardapioSecao, CardapioItem } from '../../types/cardapioTypes';
