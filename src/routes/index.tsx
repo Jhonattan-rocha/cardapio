@@ -6,6 +6,7 @@ import GerenciamentoCardapios from '../screens/GerenciamentoCardapios';
 import ConstrutorCardapio from '../screens/ConstrutorCardapio';
 import type { Cardapio } from '../types/cardapioTypes';
 import LoginScreen from '../screens/LoginCardapio';
+import GerenciamentoUsuarios from '../screens/GerenciamentoUsuarios';
 
 const Router: React.FC = () => {
   const navigate = useNavigate();
@@ -67,6 +68,9 @@ const Router: React.FC = () => {
             onBack={() => navigate('/')}
         />}/>
         <Route path='/login' element={<LoginScreen />} />
+
+        {/* Nova rota para gerenciamento de usuários */}
+        <Route path="/admin/users" element={<GerenciamentoUsuarios />} />
       </Routes>
   );
 };

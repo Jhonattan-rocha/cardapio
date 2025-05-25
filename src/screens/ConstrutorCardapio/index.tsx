@@ -1,19 +1,22 @@
 // src/screens/ConstrutorCardapio.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { DragDropContext, Droppable, Draggable, type DropResult } from 'react-beautiful-dnd';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import jsPDF from 'jspdf';
 
-import type { Cardapio, CardapioSecao, CardapioItem } from '../../types/cardapioTypes';
+import type { Cardapio, CardapioSecao, CardapioItem, SecaoEspacador, SecaoVideo, SecaoGaleria, SecaoFaq } from '../../types/cardapioTypes';
 import { Button, IconButton } from '../../components/common/Buttun'; // Ajuste o caminho se necessário
-import { FaArrowLeft, FaPlus, FaImage, FaList, FaHeading, FaBars, FaTrashAlt, FaEdit, FaSave, FaFilePdf } from 'react-icons/fa';
+import { FaArrowLeft, FaPlus, FaImage, FaList, FaHeading, FaBars, FaTrashAlt, FaEdit, FaSave, FaFilePdf, FaMinus, FaArrowsAltV, FaYoutube, FaImages, FaQuestionCircle } from 'react-icons/fa';
 import { Modal, ModalContent } from '../../styles/GlobalStyles'; // Ajuste o caminho se necessário
 import { AddItemButton, CardapioItemContainer, Container, ContentBuilderArea, ContentElement, ElementContent, ElementControls,
     FormSection, Header, PdfButtonWrapper, StyledImagePreview, Toolbar
  } from './styled';
+import { QRCodeCanvas } from 'qrcode.react';
+import { FaQrcode } from 'react-icons/fa';
+import { Modal as GlobalModal, ModalContent as GlobalModalContent } from '../../styles/GlobalStyles'; //
 
 // --- Tipos para Modais de Edição ---
 interface EditingItemState extends Partial<CardapioItem> {
@@ -52,6 +55,12 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
     conteudo: [],
     moeda: 'BRL', // Default
   });
+
+  // Dentro do componente GerenciamentoCardapios
+  const [showQrModal, setShowQrModal] = useState<boolean>(false);
+  const [qrCodeValue, setQrCodeValue] = useState<string>('');
+  const qrCodeRef = useRef<HTMLCanvasElement>(null);
+  const [currentCardapioNameForQr, setCurrentCardapioNameForQr] = useState<string>('');
 
   // Estados para o modal de item de cardápio (prato/bebida)
   const [showItemModal, setShowItemModal] = useState(false);
@@ -96,6 +105,35 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
     }
   }, [cardapioId]);
 
+  const handleShowQrCode = (cardapioName: string) => {
+    const url = `<span class="math-inline">\{window\.location\.origin\}/cardapio/</span>{cardapioId}/pdf`;
+    setQrCodeValue(url);
+    setCurrentCardapioNameForQr(cardapioName);
+    setShowQrModal(true);
+  };
+
+  const handleDownloadQrCode = () => {
+    if (qrCodeRef.current) {
+      const canvas = qrCodeRef.current; // A biblioteca qrcode.react renderiza um canvas
+      if (canvas) {
+        const pngUrl = canvas
+          .toDataURL('image/png')
+          .replace('image/png', 'image/octet-stream'); // Força o download
+
+        let downloadLink = document.createElement('a');
+        downloadLink.href = pngUrl;
+        downloadLink.download = `qrcode-${currentCardapioNameForQr.replace(/\s+/g, '_') || 'cardapio'}.png`;
+
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+      } else {
+        console.error("Elemento canvas do QR Code não encontrado.");
+        alert("Não foi possível baixar o QR Code. Tente novamente.");
+      }
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setCardapio({ ...cardapio, [name]: value });
@@ -129,6 +167,21 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
         break;
       case 'lista':
         newElement = { ...newElementBase, tipo: type, listaItems: ['Item 1', 'Item 2'] };
+        break;
+      case 'divisor':
+        newElement = { ...newElementBase, tipo: type, titulo: 'Divisor' }; // Título apenas para referência interna
+        break;
+      case 'espacador':
+        newElement = { ...newElementBase, tipo: type, titulo: 'Espaçador', altura: 20 }; // Altura padrão
+        break;
+      case 'video':
+        newElement = { ...newElementBase, tipo: type, titulo: 'Vídeo Embutido', videoUrl: '' };
+        break;
+      case 'galeria':
+        newElement = { ...newElementBase, tipo: type, titulo: 'Galeria de Imagens', imagens: [] };
+        break;
+      case 'faq':
+        newElement = { ...newElementBase, tipo: type, titulo: 'Perguntas Frequentes', itensFaq: [] };
         break;
       default:
         return; // Tipo desconhecido
@@ -574,6 +627,11 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
           <Button onClick={() => addContentElement('texto')}><FaBars /> Texto</Button>
           <Button onClick={() => addContentElement('imagem')}><FaImage /> Imagem</Button>
           <Button onClick={() => addContentElement('lista')}><FaList /> Lista</Button>
+          <Button onClick={() => addContentElement('divisor')} title="Adicionar Divisor"><FaMinus /> Divisor</Button>
+          <Button onClick={() => addContentElement('espacador')} title="Adicionar Espaçador"><FaArrowsAltV /> Espaçador</Button>
+          <Button onClick={() => addContentElement('video')} title="Adicionar Vídeo"><FaYoutube /> Vídeo</Button>
+          <Button onClick={() => addContentElement('galeria')} title="Adicionar Galeria de Imagens"><FaImages /> Galeria</Button>
+          <Button onClick={() => addContentElement('faq')} title="Adicionar FAQ"><FaQuestionCircle /> FAQ</Button>
         </Toolbar>
 
         <DragDropContext onDragEnd={handleOnDragEnd}>
@@ -644,6 +702,49 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
                               </AddItemButton>
                             </>
                           )}
+                          {section.tipo === 'divisor' && <hr style={{ margin: 'var(--spacing-md) 0', border: 'none', borderTop: '2px solid var(--border-color)' }} />}
+                          {section.tipo === 'espacador' && <div style={{ height: `${(section as SecaoEspacador).altura || 20}px` }} />}
+                          {section.tipo === 'video' && (section as SecaoVideo).videoUrl && (
+                            <div>
+                              <h4>Vídeo: {section.titulo}</h4>
+                              <iframe
+                                width="100%"
+                                height="315" // Ou ajuste conforme necessário
+                                src={(section as SecaoVideo).videoUrl?.replace("watch?v=", "embed/")} // Simples conversão para YouTube
+                                title={section.titulo || 'Vídeo'}
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                              ></iframe>
+                              {(section as SecaoVideo).legendaVideo && <p style={{textAlign: 'center', fontSize: '0.8em'}}>{(section as SecaoVideo).legendaVideo}</p>}
+                            </div>
+                          )}
+                          {section.tipo === 'galeria' && (
+                            <div>
+                              <h4>Galeria: {section.titulo}</h4>
+                              {/* Implementar visualização da galeria, talvez com styled-component */}
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                {(section as SecaoGaleria).imagens.map(img => (
+                                  <div key={img.id}>
+                                    <img src={img.url} alt={img.legenda || 'Imagem da galeria'} style={{ width: '150px', height: '100px', objectFit: 'cover' }}/>
+                                    {img.legenda && <p style={{fontSize: '0.8em', textAlign: 'center'}}>{img.legenda}</p>}
+                                  </div>
+                                ))}
+                              </div>
+                              { (section as SecaoGaleria).imagens.length === 0 && <p>Nenhuma imagem na galeria. Edite para adicionar.</p>}
+                            </div>
+                          )}
+                          {section.tipo === 'faq' && (
+                            <div>
+                              <h4>FAQ: {section.titulo}</h4>
+                              {(section as SecaoFaq).itensFaq.map(item => (
+                                <details key={item.id} style={{ marginBottom: '10px', border: '1px solid #eee', padding: '10px' }}>
+                                  <summary style={{ fontWeight: 'bold', cursor: 'pointer' }}>{item.pergunta}</summary>
+                                  <p style={{marginTop: '5px'}}>{item.resposta}</p>
+                                </details>
+                              ))}
+                              { (section as SecaoFaq).itensFaq.length === 0 && <p>Nenhuma pergunta e resposta. Edite para adicionar.</p>}
+                            </div>
+                          )}
                         </ElementContent>
                       </ContentElement>
                     )}
@@ -665,7 +766,33 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
         <Button $variant="primary" onClick={handleGeneratePdf}>
           <FaFilePdf style={{ marginRight: '8px' }} /> Gerar PDF
         </Button>
+        <IconButton onClick={() => handleShowQrCode(cardapio.nome)} title="Gerar QR Code para PDF">
+          <FaQrcode />
+        </IconButton>
       </PdfButtonWrapper>
+
+      {showQrModal && (
+        <GlobalModal>
+          <GlobalModalContent style={{ textAlign: 'center' }}>
+            <h3>QR Code para: {currentCardapioNameForQr}</h3>
+            <p style={{marginBottom: 'var(--spacing-md)', fontSize: '0.9em', wordBreak: 'break-all'}}>
+              Escaneie para baixar o PDF: <br/> <a href={qrCodeValue} target="_blank" rel="noopener noreferrer">{qrCodeValue}</a>
+            </p>
+            {qrCodeValue ? (
+              <QRCodeCanvas value={qrCodeValue} ref={qrCodeRef} size={256} style={{ cursor: 'pointer' }} level="H" onClick={(e) => {
+                handleDownloadQrCode();
+                e.stopPropagation();
+                e.preventDefault();
+              }} />
+            ) : (
+              <p>Gerando QR Code...</p>
+            )}
+            <Button $variant="secondary" onClick={() => setShowQrModal(false)} style={{ marginTop: 'var(--spacing-lg)' }}>
+              Fechar
+            </Button>
+          </GlobalModalContent>
+        </GlobalModal>
+      )}
 
       {/* Modal para Adicionar/Editar Item de Cardápio (Prato/Bebida) */}
       {showItemModal && (

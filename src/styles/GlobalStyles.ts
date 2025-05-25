@@ -98,6 +98,10 @@ export const ModalContent = styled.div`
   box-shadow: var(--box-shadow);
   width: 90%;
   max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 
   h3 {
     margin-bottom: var(--spacing-lg);
