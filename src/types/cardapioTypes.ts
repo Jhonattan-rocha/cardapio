@@ -24,12 +24,20 @@ export interface CardapioSecao {
   items?: CardapioItem[]; // Para 'item'
   imagemUrl?: string; // Pode ser URL externa ou Data URL para preview/PDF
   legendaImagem?: string;
+  legendaVideo?: string;
   listaItems?: string[]; // Para 'lista'
   layoutItem?: 'lista' | 'grade-2-colunas' | 'grade-3-colunas'; // Para seções de 'item'
   altura?: number;
   videoUrl?: string;
   imagens?: Array<ImagemGaleria>;
   itensFaq?: Array<FaqItem>;
+}
+
+export interface ItemFaq {
+  id: string;
+  pergunta: string;
+  resposta: string;
+  ordem?: number;
 }
 
 export interface Cardapio {
@@ -102,6 +110,7 @@ export interface ImagemGaleria {
   id: string;
   url: string;
   legenda?: string;
+  ordem: number;
 }
 export interface SecaoGaleria extends CardapioSecaoBase {
   tipo: 'galeria';
