@@ -1,10 +1,16 @@
 // src/screens/LoginScreen.tsx
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { Button } from '../components/common/Buttun';
 import { FaUser, FaLock } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
+import * as actions from '../store/modules/authReducer/actions';
+import api from '../services/axios';
+import { useDispatch } from 'react-redux';
+import ActivityIndicator from '../components/common/ActivityIndicator';
+import { useSelector } from 'react-redux';
+import type { AuthState } from '../store/modules/types';
 
 // --- Styled Components ---
 const Container = styled.div`
@@ -90,9 +96,12 @@ const InputWrapper = styled.div`
 type LoginScreenProps = object;
 
 const LoginScreen: React.FC<LoginScreenProps> = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const dispatch = useDispatch();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const user = useSelector((state: { authreducer: AuthState }) => state.authreducer);
   const navigate = useNavigate();
 
   const handleLogin = () => {
@@ -101,12 +110,37 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
       return;
     }
     // Simulação de autenticação (em um cenário real, faria uma chamada à API)
-    if (username === 'admin' && password === '123456') {
-      navigate("/")
+    if (username && password) {
+      setIsLoading(true);
+      login();
     } else {
       setErrorMessage('Credenciais inválidas.');
     }
   };
+
+  const login = async () => {
+    try{
+      const req = await api.post("/auth/token", {username, password}, {
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+      dispatch(actions.LoginSuccess({ id: req.data.id, token: req.data.token }));
+    }catch(e){
+      setErrorMessage(`Erro: ${e}`);
+    }
+    setIsLoading(false);
+  }
+
+  useEffect(() => {
+    try{
+      if(user.isLoggedIn){
+        navigate("/");
+      }
+    }catch(err){
+      setErrorMessage(`${err}`);
+    }
+  }, [user]);
 
   return (
     <Container>
@@ -138,9 +172,13 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
           />
         </InputWrapper>
 
-        <Button $variant="primary" onClick={handleLogin}>
-          Entrar
-        </Button>
+        {isLoading ? (
+          <ActivityIndicator />
+        ) : (
+          <Button $variant="primary" onClick={handleLogin}>
+            Entrar
+          </Button>
+        )}
       </LoginForm>
     </Container>
   );
