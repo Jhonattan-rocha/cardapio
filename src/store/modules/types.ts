@@ -8,7 +8,8 @@ export interface AuthState {
     token: string,
     user: {
         username: string,
-        id: number
+        id: number,
+        is_admin: boolean,
     }
 }
 
@@ -26,10 +27,12 @@ export interface SuccessProps {
 }
 
 export interface LoggedActionProps extends ActionProps {
-    payload?: { token: string, email: string, id: number }
+    payload?: { token: string; id: number; username: string; is_admin: boolean; }
 }
 
 export interface LoggedPayloadProps {
     token: string; 
     id: number;
+    username: string;
+    is_admin: boolean;
 }

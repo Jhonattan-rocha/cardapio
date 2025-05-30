@@ -1,15 +1,18 @@
 // src/Router.tsx
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Route, Routes, useNavigate } from 'react-router-dom';
 import GerenciamentoCardapios from '../screens/GerenciamentoCardapios';
 import ConstrutorCardapio from '../screens/ConstrutorCardapio';
 import type { Cardapio } from '../types/cardapioTypes';
 import LoginScreen from '../screens/LoginCardapio';
 import GerenciamentoUsuarios from '../screens/GerenciamentoUsuarios';
+import { useSelector } from 'react-redux';
+import type { AuthState } from '../store/modules/types';
 
 const Router: React.FC = () => {
   const navigate = useNavigate();
+  const user = useSelector((state: { authreducer: AuthState }) => state.authreducer)
   const [selectedCardapioId, setSelectedCardapioId] = useState<string | undefined>(undefined);
 
   const handleAddCardapio = () => {
@@ -47,6 +50,16 @@ const Router: React.FC = () => {
     alert(`Cardápio "${cardapioData.nome}" salvo com sucesso!`);
     navigate('/'); // Volta para a lista após salvar
   };
+
+  useEffect(() => {
+    try{
+      if(!user.isLoggedIn){
+        navigate('/login');
+      }
+    }catch(err){
+      navigate('/login');
+    }
+  }, [user]);
 
   return (
       <Routes>

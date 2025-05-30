@@ -5,6 +5,8 @@ import styled from 'styled-components';
 import type { Cardapio } from '../types/cardapioTypes';
 import { Button, IconButton } from '../components/common/Buttun';
 import { FaEdit, FaTrashAlt, FaEye, FaPlus, FaFilePdf } from 'react-icons/fa'; // Ícones
+import { useSelector } from 'react-redux';
+import type { AuthState } from '../store/modules/types';
 
 // --- Styled Components ---
 const Container = styled.div`
@@ -108,7 +110,8 @@ const GerenciamentoCardapios: React.FC<GerenciamentoCardapiosProps> = ({
         conteudo: [],
     },
   ]);
-
+  const authUser = useSelector((state: { authreducer: AuthState }) => state.authreducer);
+  console.log(authUser);
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredCardapios = cardapios.filter(cardapio =>

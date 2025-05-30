@@ -3,7 +3,7 @@ import store from '../store';
 import * as actions from '../store/modules/authReducer/actions';
 
 const api = axios.create({
-    baseURL: "http://localhost:8000/api/v1/"
+    baseURL: "http://localhost:9000/api/v1/"
 });
 
 // Interceptor de respostas

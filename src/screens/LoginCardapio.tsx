@@ -125,7 +125,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
       });
-      dispatch(actions.LoginSuccess({ id: req.data.id, token: req.data.token }));
+      dispatch(actions.LoginSuccess({ id: req.data.id, token: req.data.access_token, is_admin: req.data.is_admin, username: req.data.username }));
     }catch(e){
       setErrorMessage(`Erro: ${e}`);
     }
