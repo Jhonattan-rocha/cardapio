@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
 import type { Cardapio } from '../types/cardapioTypes'; // Atualizado
 import { Button, IconButton } from '../components/common/Buttun'; // Verifique o nome do arquivo
-import { FaEdit, FaTrashAlt, FaEye, FaPlus, FaFilePdf } from 'react-icons/fa';
+import { FaEdit, FaTrashAlt, FaPlus, FaFilePdf } from 'react-icons/fa';
 import { useSelector } from 'react-redux';
 import type { AuthState } from '../store/modules/types'; // Ajuste o caminho se necessário
 import api from '../services/axios'; // Seu serviço Axios configurado
@@ -84,15 +84,11 @@ const ErrorMessage = styled.p`
 interface GerenciamentoCardapiosProps {
   onAddCardapio: () => void;
   onEditCardapio: (id: string) => void;
-  onViewCardapio: (id: string) => void;
-  // onDeleteCardapio: (id: string) => void; // Pode ser removido se o estado for gerenciado aqui
-  // onGeneratePdf: (id: string) => void; // Pode ser removido se o download for tratado aqui
 }
 
 const GerenciamentoCardapios: React.FC<GerenciamentoCardapiosProps> = ({
   onAddCardapio,
   onEditCardapio,
-  onViewCardapio,
 }) => {
   const [cardapios, setCardapios] = useState<Cardapio[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -225,7 +221,7 @@ const GerenciamentoCardapios: React.FC<GerenciamentoCardapiosProps> = ({
               <th>Descrição</th>
               <th>Status</th>
               <th>Última Atualização</th>
-              <th style={{ width: '200px', textAlign: 'right' }}>Ações</th> {/* Ajustado width */}
+              <th style={{ width: '200px', textAlign: 'right' }}>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -250,9 +246,6 @@ const GerenciamentoCardapios: React.FC<GerenciamentoCardapiosProps> = ({
                 </td>
                 <td>{new Date(cardapio.ultimaAtualizacao).toLocaleDateString()}</td>
                 <ActionsCell>
-                  <IconButton onClick={() => onViewCardapio(cardapio.id)} title="Visualizar Cardápio" disabled={isLoading}>
-                    <FaEye />
-                  </IconButton>
                   <IconButton onClick={() => onEditCardapio(cardapio.id)} title="Editar Cardápio" disabled={isLoading}>
                     <FaEdit />
                   </IconButton>

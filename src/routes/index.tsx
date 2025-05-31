@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import { Route, Routes, useNavigate } from 'react-router-dom';
 import GerenciamentoCardapios from '../screens/GerenciamentoCardapios';
 import ConstrutorCardapio from '../screens/ConstrutorCardapio';
-import type { Cardapio } from '../types/cardapioTypes';
 import LoginScreen from '../screens/LoginCardapio';
 import GerenciamentoUsuarios from '../screens/GerenciamentoUsuarios';
 import { useSelector } from 'react-redux';
@@ -23,12 +22,6 @@ const Router: React.FC = () => {
   const handleEditCardapio = (id: string) => {
     setSelectedCardapioId(id);
     navigate('/edit');
-  };
-
-  const handleViewCardapio = (id: string) => {
-    // Em uma aplicação real, você teria uma tela de visualização dedicada
-    alert(`Visualizando cardápio com ID: ${id}`);
-    // Ou poderia navegar para uma rota de /cardapios/${id}/view
   };
 
   const handleSaveCardapio = () => {
@@ -50,7 +43,6 @@ const Router: React.FC = () => {
         <Route path='/' index element={<GerenciamentoCardapios
           onAddCardapio={handleAddCardapio}
           onEditCardapio={handleEditCardapio}
-          onViewCardapio={handleViewCardapio}
         />}/>
         <Route path='/create' element={<ConstrutorCardapio
             cardapioId={selectedCardapioId}

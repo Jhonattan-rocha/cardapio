@@ -105,7 +105,7 @@ export const ElementControls = styled.div`
 export const ElementContent = styled.div`
   flex-grow: 1;
   h2 { font-size: 1.5em; margin-bottom: var(--spacing-sm); color: var(--primary-color); }
-  p, ul, div[dangerouslySetInnerHTML] { color: var(--text-color); line-height: 1.6; }
+  p, ul, div[dangerouslySetInnerHTML] { color: var(--text-color); line-height: 1.6; text-overflow: ellipsis; overflow: hidden; max-width: 800px; }
   ul { padding-left: var(--spacing-lg); }
 `;
 

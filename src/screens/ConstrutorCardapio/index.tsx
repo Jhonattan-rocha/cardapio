@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { DragDropContext, Droppable, Draggable, type DropResult } from 'react-beautiful-dnd';
+import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import ReactQuill from 'react-quill-new'; // Verifique se é o 'react-quill' ou uma fork específica
 import 'react-quill-new/dist/quill.snow.css'; // Ajuste se o nome do pacote for diferente
-import jsPDF from 'jspdf';
 import { useSelector } from 'react-redux'; // Para obter informações do usuário, se necessário
 
 import type {
@@ -216,18 +215,6 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
     }
   };
 
-
-  // --- Funções de manipulação de conteúdo (addContentElement, updateContentElement, etc.) ---
-  // Seu código para addContentElement, updateContentElement, deleteContentElement, handleOnDragEnd
-  // openEditElementModal, handleEditingElementChange, handleImageFileChange, handleSaveElementChanges
-  // handleItemFormChange, handleItemSave, openEditItemModal, handleDeleteItem
-  // handleGalleryImageChange, addGalleryImage, removeGalleryImage
-  // handleFaqItemChange, addFaqItem, removeFaqItem
-  // permanecem aqui, pois gerenciam o estado local 'cardapio'.
-  // Apenas certifique-se que os IDs (uuidv4) são gerados para novos elementos/itens
-  // se eles ainda não tiverem um, antes de salvar no backend.
-  // A função `handleSaveCardapio` já tenta garantir IDs.
-
   const addContentElement = (type: CardapioSecao['tipo']) => {
     const newElementBase: Omit<CardapioSecao, 'tipo' | 'id' | 'ordem'> & { id?: string, ordem?: number } = {
         titulo: '',
@@ -246,20 +233,12 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
         newElement = { ...baseProps, ...newElementBase, tipo: type, texto: '<p>Clique para editar...</p>', titulo: 'Nova Seção de Texto' };
         break;
       case 'item':
-        // Para 'item', abrimos o modal para adicionar o primeiro item, ou criamos uma seção vazia
-        // A lógica atual de abrir o modal para o primeiro item parece mais interativa.
-        // Se quiser criar a seção primeiro e depois adicionar itens:
         newElement = { ...baseProps, tipo: type, titulo: 'Nova Seção de Itens', items: [] };
         setCardapio(prev => ({
             ...prev,
             conteudo: [...prev.conteudo, newElement].sort((a, b) => a.ordem - b.ordem),
         }));
-        // Opcionalmente, abrir o modal de item para a nova seção criada:
-        // setTargetSectionIdForModalItem(newElement.id);
-        // setCurrentItemData({ disponivel: true, ordem: 0 });
-        // setEditingItemId(null);
-        // setShowItemModal(true);
-        return; // Retorna para evitar a lógica de setCardapio duplicada abaixo
+        return;
       case 'imagem':
         newElement = { ...baseProps, ...newElementBase, tipo: type, imagemUrl: 'https://via.placeholder.com/600x200?text=Nova+Imagem', titulo: 'Nova Imagem' };
         break;
@@ -390,7 +369,7 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
     let processedValue: string | number | boolean | string[] = value;
     if (type === 'number') processedValue = parseFloat(value) || 0;
     if (name === 'disponivel') processedValue = (e.target as HTMLInputElement).checked;
-    if (name === 'tags' || name === 'alergenicos') processedValue = value.split(',').map(tag => tag.trim()).filter(Boolean);
+    if (name === 'tags' || name === 'alergenicos') processedValue = value.split(',').map(tag => tag.trim());
     setCurrentItemData(prev => ({ ...prev, [name]: processedValue }));
   };
 
@@ -505,6 +484,7 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
         setEditingElement(prev => prev ? ({ ...prev, currentConteudo: { ...prev.currentConteudo, itensFaq: newItensFaq }}) : null);
     }
   };
+
   const addFaqItem = () => {
     if (editingElement && editingElement.type === 'faq') {
         const newItem: ItemFaq = { id: uuidv4(), pergunta: '', resposta: '', ordem: editingElement.currentConteudo.itensFaq?.length || 0 };
@@ -522,210 +502,16 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
 
   // --- Funções de Geração de PDF e QR Code (mantidas como no seu exemplo) ---
   const handleGeneratePdf = () => {
-    // Sua lógica jsPDF existente...
-    // Certifique-se que `cardapio` aqui tem os dados mais recentes do estado.
-    // ... (código jsPDF omitido para brevidade, mas ele usaria o estado 'cardapio')
-    const doc = new jsPDF();
-    let y = 20;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 15;
-    const contentWidth = pageWidth - 2 * margin;
-    const lineHeight = 6;
-    const titleFontSize = 18;
-    const sectionTitleFontSize = 14;
-    const itemFontSize = 11;
-    const descriptionFontSize = 9;
-    const priceFontSize = 11;
-    const currency = cardapio.moeda === 'USD' ? '$' : cardapio.moeda === 'EUR' ? '€' : 'R$';
+    const a = document.createElement('a');
+    a.href = `${api.defaults.baseURL}cardapios/download/${cardapio.id}/pdf/`
+    document.body.appendChild(a);
 
-    const checkPageBreak = (neededHeight: number) => {
-      if (y + neededHeight > pageHeight - margin) {
-        doc.addPage();
-        y = margin;
-      }
-    };
+    a.click();
 
-    const addWrappedText = (
-        text: string, xPos: number, _currentY: number, maxWidth: number, fontSize: number,
-        options?: { color?: string | [number,number,number], style?: 'normal'|'bold'|'italic'|'bolditalic', align?: 'left' | 'center' | 'right' }
-    ): number => {
-        doc.setFontSize(fontSize);
-        if (options?.style) doc.setFont('helvetica', options.style);
-        if (options?.color) {
-            if (Array.isArray(options.color)) doc.setTextColor(options.color[0], options.color[1], options.color[2]);
-            else doc.setTextColor(options.color);
-        }
-
-        const lines = doc.splitTextToSize(text, maxWidth);
-        lines.forEach((line: string) => {
-            checkPageBreak(lineHeight);
-            let currentX = xPos;
-            if (options?.align === 'center') {
-                const textWidth = doc.getTextWidth(line);
-                currentX = xPos + (maxWidth - textWidth) / 2;
-                if (xPos === pageWidth / 2) currentX = (pageWidth - textWidth) / 2;
-            } else if (options?.align === 'right') {
-                const textWidth = doc.getTextWidth(line);
-                currentX = xPos + maxWidth - textWidth;
-            }
-            doc.text(line, currentX, y);
-            y += lineHeight;
-        });
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(0,0,0);
-        return y;
-    };
-
-    if (cardapio.logoUrl) {
-        try {
-            // Para jsPDF, se for Data URL, ele lida bem. Se for URL externa, precisa de CORS ou ser convertida.
-            // A maneira mais segura para jsPDF é usar Data URLs ou garantir que as imagens estejam acessíveis (CORS).
-            const imgData = cardapio.logoUrl; // Assumindo que pode ser Data URL
-            const imgProps = doc.getImageProperties(imgData);
-            const logoHeight = 25;
-            const logoWidth = (imgProps.width * logoHeight) / imgProps.height;
-            const logoX = (pageWidth - logoWidth) / 2;
-            checkPageBreak(logoHeight + lineHeight);
-            doc.addImage(imgData, imgProps.fileType, logoX, y, logoWidth, logoHeight);
-            y += logoHeight + lineHeight * 1.5;
-        } catch (e) { console.error("Erro ao adicionar logo ao PDF (jsPDF):", e); y = addWrappedText('(Falha ao carregar logo)', margin, y, contentWidth, descriptionFontSize, {color: 'red'}); }
-    }
-
-    checkPageBreak(titleFontSize + lineHeight);
-    y = addWrappedText(cardapio.nome, pageWidth / 2, y, contentWidth, titleFontSize, { style: 'bold', align: 'center'});
-    y += lineHeight;
-
-    if (cardapio.descricaoBreve) {
-      checkPageBreak(descriptionFontSize * 2 + lineHeight);
-      y = addWrappedText(cardapio.descricaoBreve, margin, y, contentWidth, descriptionFontSize, {color: [100,100,100]});
-      y += lineHeight * 0.5;
-    }
-
-    const sortedConteudo = [...cardapio.conteudo].sort((a, b) => a.ordem - b.ordem);
-    for (const section of sortedConteudo) {
-      checkPageBreak(sectionTitleFontSize + lineHeight);
-      if (section.tipo === 'titulo' && section.titulo) {
-        y = addWrappedText(section.titulo, margin, y, contentWidth, sectionTitleFontSize, {style: 'bold'});
-        doc.setLineWidth(0.2);
-        doc.line(margin, y - lineHeight/2 , pageWidth - margin, y - lineHeight/2);
-        y += lineHeight * 0.5;
-      } else if (section.tipo === 'texto' && section.texto) {
-        const plainText = section.texto.replace(/<[^>]+>/g, ' '); // Simples remoção de HTML para jsPDF
-        y = addWrappedText(plainText, margin, y, contentWidth, itemFontSize - 1);
-        y += lineHeight * 0.5;
-      } else if (section.tipo === 'imagem' && section.imagemUrl) {
-        try {
-            const imgData = section.imagemUrl; // Assumindo Data URL ou URL acessível
-            const imgProps = doc.getImageProperties(imgData);
-            const imgMaxWidth = contentWidth * 0.8;
-            const imgWidth = Math.min(imgProps.width, imgMaxWidth);
-            const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
-            checkPageBreak(imgHeight + lineHeight + (section.legendaImagem ? descriptionFontSize + lineHeight : 0));
-            const imgX = (pageWidth - imgWidth) / 2;
-            doc.addImage(imgData, imgProps.fileType, imgX, y, imgWidth, imgHeight);
-            y += imgHeight + lineHeight * 0.5;
-            if (section.legendaImagem) {
-                y = addWrappedText(section.legendaImagem, pageWidth/2, y, contentWidth * 0.7, descriptionFontSize -1, {color: [150,150,150], style: 'italic', align: 'center'});
-            }
-        } catch (e) {
-            console.error("Erro ao adicionar imagem da seção ao PDF (jsPDF):", e);
-            y = addWrappedText('(Falha ao carregar imagem da seção)', margin, y, contentWidth, descriptionFontSize, {color: 'red'});
-        }
-        y += lineHeight;
-      } else if (section.tipo === 'lista' && section.listaItems) {
-        section.listaItems.forEach(item => {
-            checkPageBreak(lineHeight);
-            y = addWrappedText(`• ${item}`, margin + 5, y, contentWidth - 5, itemFontSize -1);
-        });
-        y += lineHeight * 0.5;
-      } else if (section.tipo === 'item' && section.items) {
-        if (section.titulo) {
-            y = addWrappedText(section.titulo, margin, y, contentWidth, itemFontSize + 1, {style: 'italic', color: [50,50,50]});
-            y += lineHeight * 0.25;
-        }
-        const sortedItems = [...section.items].sort((a,b) => (a.ordem ?? 0) - (b.ordem ?? 0));
-        for (const item of sortedItems) {
-            if (item.disponivel === false) continue;
-            const itemHeightEstimate = itemFontSize + (item.descricao ? descriptionFontSize * 2 : 0) + lineHeight * 2;
-            checkPageBreak(itemHeightEstimate);
-            const priceText = `${currency} ${item.preco.toFixed(2)}`;
-            const priceWidth = doc.getTextWidth(priceText);
-            const currentYBeforeName = y;
-            y = addWrappedText(item.nome, margin + 5, y, contentWidth - priceWidth - 10, itemFontSize, {style: 'bold'});
-            const nameLines = doc.splitTextToSize(item.nome, contentWidth - priceWidth - 10).length;
-            const priceY = currentYBeforeName + (nameLines > 1 ? (nameLines -1) * lineHeight : 0); // Ajuste para preço ao lado do nome
-            doc.setFontSize(priceFontSize);
-            doc.text(priceText, pageWidth - margin - priceWidth, priceY);
-
-            if (item.descricao) {
-                y = addWrappedText(item.descricao, margin + 5, y, contentWidth - 10, descriptionFontSize, {color: [80,80,80]});
-            }
-            const details = [];
-            if (item.tags && item.tags.length > 0) details.push(`Tags: ${item.tags.join(', ')}`);
-            if (item.alergenicos && item.alergenicos.length > 0) details.push(`Alergênicos: ${item.alergenicos.join(', ')}`);
-            if (details.length > 0) {
-                y = addWrappedText(details.join(' | '), margin + 10, y, contentWidth - 15, descriptionFontSize - 1, {color: [120,120,120]});
-            }
-            y += lineHeight * 0.5;
-        }
-        y += lineHeight;
-      } else if (section.tipo === 'divisor') {
-        checkPageBreak(lineHeight * 1.5);
-        doc.setLineWidth(0.5);
-        doc.line(margin, y, pageWidth - margin, y);
-        y += lineHeight * 1.5;
-      } else if (section.tipo === 'espacador' && 'altura' in section) {
-        const alturaEspacador = section.altura || 20;
-        checkPageBreak(alturaEspacador / 3); // Aproximação
-        y += alturaEspacador / 3;
-      }
-      // Adicionar Video, Galeria, FAQ no PDF (placeholder por enquanto)
-      else if (section.tipo === 'video' && 'videoUrl' in section) {
-        y = addWrappedText(`[Vídeo: ${section.titulo || 'Vídeo'}${section.legendaVideo ? ' - ' + section.legendaVideo : ''}] (${(section as SecaoVideo).videoUrl})`, margin, y, contentWidth, descriptionFontSize);
-        y += lineHeight;
-      } else if (section.tipo === 'galeria' && 'imagens' in section) {
-        y = addWrappedText(`[Galeria: ${section.titulo || 'Galeria de Imagens'}] (${(section as SecaoGaleria).imagens.length} imagens)`, margin, y, contentWidth, descriptionFontSize);
-        y += lineHeight;
-      } else if (section.tipo === 'faq' && 'itensFaq' in section) {
-        y = addWrappedText(`[FAQ: ${section.titulo || 'FAQ'}] (${(section as SecaoFaq).itensFaq.length} itens)`, margin, y, contentWidth, descriptionFontSize);
-        (section as SecaoFaq).itensFaq.forEach(faqItem => {
-            y = addWrappedText(`P: ${faqItem.pergunta}`, margin + 5, y, contentWidth -5, descriptionFontSize -1);
-            y = addWrappedText(`R: ${faqItem.resposta}`, margin + 10, y, contentWidth -10, descriptionFontSize -1, {color: [80,80,80]});
-        });
-        y += lineHeight;
-      }
-    }
-
-    if (cardapio.informacoesAdicionais) {
-        const infoHeightEstimate = descriptionFontSize * 3;
-        if (y + infoHeightEstimate > pageHeight - margin - 10) {
-            doc.addPage();
-            y = margin;
-        }
-        const footerY = pageHeight - margin - infoHeightEstimate;
-        // y = Math.max(y, footerY); // Esta linha pode causar problemas se y já for muito grande
-        if (y < footerY) y = footerY; // Só move para o rodapé se houver espaço
-
-        y = addWrappedText(cardapio.informacoesAdicionais, margin, y, contentWidth, descriptionFontSize -1, {color: [100,100,100], align: 'center'});
-    }
-
-    const pageCount = doc.getNumberOfPages ? doc.getNumberOfPages() : (doc.internal as any).getNumberOfPages(); // Compatibilidade
-    for(let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setTextColor(150);
-        doc.text('Página ' + String(i) + ' de ' + String(pageCount), pageWidth - margin - doc.getTextWidth('Página X de Y') - 5 , pageHeight - margin + 5);
-    }
-
-    doc.save(`${cardapio.nome.replace(/\s+/g, '_') || 'cardapio'}.pdf`);
-    alert("PDF gerado com sucesso!");
+    document.body.removeChild(a);
   };
 
   const handleShowQrCode = (cardapioName: string) => {
-    // Idealmente, a URL deve apontar para uma página pública de visualização do cardápio.
-    // Se o ID do cardápio puder mudar após a primeira criação (o que não deveria se o estado for atualizado corretamente),
-    // certifique-se de usar o ID mais atual.
     const publicViewUrl = `${api.defaults.baseURL}cardapios/download/${cardapio.id}/pdf/`; // Exemplo de rota
     setQrCodeValue(publicViewUrl);
     setCurrentCardapioNameForQr(cardapioName || "Cardápio");
@@ -774,14 +560,6 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
           </Button>
         </div>
       </Header>
-
-      {/* Seu JSX para FormSection, ContentBuilderArea, Modais, etc. permanece aqui */}
-      {/* O conteúdo do return de ConstrutorCardapio.tsx (FormSection, ContentBuilderArea, Modais)
-          é extenso e não precisa ser repetido aqui, pois as mudanças principais
-          são no estado, useEffect e nas funções de save/load.
-          Cole seu JSX original aqui, garantindo que os values e onChanges
-          usem o estado `cardapio` e a função `handleInputChange`.
-      */}
         <FormSection>
             <h3>Informações Básicas do Cardápio</h3>
             <label htmlFor="nome">Nome do Cardápio:</label>
@@ -825,7 +603,7 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
             </Toolbar>
 
             <DragDropContext onDragEnd={handleOnDragEnd}>
-              <Droppable droppableId="conteudoCardapio">
+              <Droppable droppableId="conteudoCardapio" isDropDisabled={false} isCombineEnabled={true} ignoreContainerClipping={false}>
                 {(provided) => (
                   <div {...provided.droppableProps} ref={provided.innerRef}>
                     {cardapio.conteudo.sort((a,b) => a.ordem - b.ordem).map((section, index) => (
@@ -1044,7 +822,7 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
                             <>
                             <label>Conteúdo do Texto:</label>
                             <ReactQuill theme="snow" value={editingElement.currentConteudo.texto || ''}
-                                onChange={(content) => handleEditingElementChange('texto', content)} />
+                                onChange={(content) => handleEditingElementChange('texto', content)} style={{ maxWidth: '400px', position: 'relative' }} />
                             </>
                         )}
                         {editingElement.type === 'imagem' && (
