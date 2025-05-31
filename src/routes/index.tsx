@@ -31,23 +31,7 @@ const Router: React.FC = () => {
     // Ou poderia navegar para uma rota de /cardapios/${id}/view
   };
 
-  const handleDeleteCardapio = (id: string) => {
-    console.log(`Excluir cardápio com ID: ${id}`);
-    // A lógica de exclusão está dentro de GerenciamentoCardapios
-    // Aqui você faria uma chamada API para remover o cardápio do banco de dados
-  };
-
-  const handleGeneratePdf = (id: string) => {
-    console.log(`Gerar PDF para cardápio com ID: ${id}`);
-    // A lógica de geração de PDF está no ConstrutorCardapio, você precisaria carregar os dados completos aqui ou passar o ID para lá
-    // Para simplificar, vamos redirecionar para o construtor para "gerar PDF"
-    handleEditCardapio(id); // Simplesmente abre o construtor para o cardápio e o botão de PDF estará lá
-  };
-
-  const handleSaveCardapio = (cardapioData: Cardapio) => {
-    console.log('Cardápio salvo/atualizado:', cardapioData);
-    // Aqui você enviaria os dados para o seu backend para salvar ou atualizar
-    alert(`Cardápio "${cardapioData.nome}" salvo com sucesso!`);
+  const handleSaveCardapio = () => {
     navigate('/'); // Volta para a lista após salvar
   };
 
@@ -67,17 +51,15 @@ const Router: React.FC = () => {
           onAddCardapio={handleAddCardapio}
           onEditCardapio={handleEditCardapio}
           onViewCardapio={handleViewCardapio}
-          onDeleteCardapio={handleDeleteCardapio}
-          onGeneratePdf={handleGeneratePdf}
         />}/>
         <Route path='/create' element={<ConstrutorCardapio
             cardapioId={selectedCardapioId}
-            onSave={handleSaveCardapio}
+            onSaveSuccess={handleSaveCardapio}
             onBack={() => navigate('/')}
         />}/>
         <Route path='/edit' element={<ConstrutorCardapio
             cardapioId={selectedCardapioId}
-            onSave={handleSaveCardapio}
+            onSaveSuccess={handleSaveCardapio}
             onBack={() => navigate('/')}
         />}/>
         <Route path='/login' element={<LoginScreen />} />
