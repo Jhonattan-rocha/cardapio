@@ -29,8 +29,9 @@ import {
   FormSection, Header, PdfButtonWrapper, StyledImagePreview, Toolbar
 } from './styled'; // Seus componentes estilizados
 import { QRCodeCanvas } from 'qrcode.react';
+import ImageSelectorModal from '../../components/modals/ImageSelectorModal'; // Garanta que está importado
 
-// --- Tipos para Modais de Edição (mantidos como no seu exemplo) ---
+// --- Tipos para Modais de Edição ---
 interface EditingItemState extends Partial<CardapioItem> {
   // Adicione campos específicos para o formulário se necessário
 }
@@ -60,8 +61,15 @@ interface ConstrutorCardapioProps {
   onBack: () => void;
 }
 
+// Tipo para rastrear o alvo da seleção de imagem
+type ImageTargetField =
+  | { type: 'logoUrl' }
+  | { type: 'elementImagemUrl'; elementId: string }
+  | { type: 'itemImagemUrl'; itemId?: string } // itemId é opcional para novos itens
+  | { type: 'galeriaImagemUrl'; elementId: string; imagemGaleriaId: string; index: number };
+
 const initialCardapioState = (id?: string): Cardapio => ({
-  id: id && id !== 'novo' ? id : uuidv4(), // Usa ID existente ou gera novo para 'novo'
+  id: id && id !== 'novo' ? id : uuidv4(),
   nome: '',
   descricaoBreve: '',
   categoria: '',
@@ -78,7 +86,7 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
   const [cardapio, setCardapio] = useState<Cardapio>(initialCardapioState(cardapioId));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const auth = useSelector((state: { authreducer: AuthState }) => state.authreducer); // Para owner_id
+  const auth = useSelector((state: { authreducer: AuthState }) => state.authreducer);
 
   const [showQrModal, setShowQrModal] = useState<boolean>(false);
   const [qrCodeValue, setQrCodeValue] = useState<string>('');
@@ -93,6 +101,9 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
   const [showEditElementModal, setShowEditElementModal] = useState(false);
   const [editingElement, setEditingElement] = useState<EditingElementState | null>(null);
 
+  const [showImageSelectorModal, setShowImageSelectorModal] = useState(false);
+  const [imageTarget, setImageTarget] = useState<ImageTargetField | null>(null); // Estado para o alvo da imagem
+
   // Carregar cardápio existente
   useEffect(() => {
     const loadCardapio = async (idToLoad: string) => {
@@ -104,13 +115,11 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
             Authorization: `Bearer ${auth.token}`
           }
         });
-        // Garante que o conteúdo seja um array, mesmo que venha nulo do backend.
         const loadedCardapio = { ...response.data, conteudo: response.data.conteudo || [] };
         setCardapio(loadedCardapio);
       } catch (err: any) {
         console.error(`Falha ao carregar cardápio ${idToLoad}:`, err);
         setError(err.response?.data?.detail || `Erro ao carregar cardápio.`);
-        // Considerar chamar onBack() ou mostrar um erro mais proeminente
       } finally {
         setIsLoading(false);
       }
@@ -119,13 +128,10 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
     if (cardapioId && cardapioId !== 'novo') {
       loadCardapio(cardapioId);
     } else {
-      // Novo cardápio: reseta para o estado inicial com um novo UUID se necessário
-      // Se cardapio.id já for um UUID de uma tentativa anterior não salva, pode mantê-lo.
-      // Se o cardapioId prop for explicitamente 'novo', geramos um novo id para o estado.
       setCardapio(initialCardapioState(cardapioId === 'novo' ? uuidv4() : cardapio.id));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cardapioId]); // Não incluir onBack se ele não mudar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardapioId, auth.token]); // Adicionado auth.token como dependência
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -139,12 +145,11 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
 
     const finalStatus = publish ? 'publicado' : cardapio.status === 'publicado' && !publish ? 'publicado' : 'rascunho';
 
-    // Garante que todas as seções e itens tenham IDs UUIDv4 válidos se forem novos
     const processedConteudo = cardapio.conteudo.map(section => ({
       ...section,
-      id: section.id || uuidv4(), // Garante ID para a seção
+      id: section.id || uuidv4(),
       items: section.tipo === 'item' && section.items
-        ? section.items.map(item => ({ ...item, id: item.id || uuidv4() })) // Garante ID para cada item
+        ? section.items.map(item => ({ ...item, id: item.id || uuidv4() }))
         : section.items,
       imagens: section.tipo === 'galeria' && section.imagens
         ? section.imagens.map(img => ({...img, id: img.id || uuidv4() }))
@@ -153,7 +158,6 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
         ? section.itensFaq.map(faq => ({...faq, id: faq.id || uuidv4() }))
         : section.itensFaq,
     }));
-
 
     const cardapioToSubmit: Omit<Cardapio, 'owner_id' | 'created_at' | 'ultimaAtualizacao' | 'id'> & { id?: string } = {
       nome: cardapio.nome,
@@ -169,43 +173,32 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
         }
         return section;
       }),
-      // tema: cardapio.tema, // 'tema' será ignorado se não estiver no schema do backend
     };
-
 
     try {
       let savedCardapio: Cardapio;
       if (cardapioId && cardapioId !== 'novo') {
-        // Atualizando cardápio existente
-        // O backend espera `schemas.CardapioUpdate`
         const response = await api.put<Cardapio>(`/cardapios/${cardapio.id}`, cardapioToSubmit, {
-          headers: {
-            Authorization: `Bearer ${auth.token}`
-          }
+          headers: { Authorization: `Bearer ${auth.token}` }
         });
         savedCardapio = response.data;
         alert(`Cardápio atualizado ${finalStatus === 'publicado' ? 'e publicado' : 'como ' + finalStatus}!`);
       } else {
-        // Criando novo cardápio
-        // O backend espera `schemas.CardapioCreate` (sem id)
         const response = await api.post<Cardapio>('/cardapios/', cardapioToSubmit, {
-          headers: {
-            Authorization: `Bearer ${auth.token}`
-          }
+          headers: { Authorization: `Bearer ${auth.token}` }
         });
         savedCardapio = response.data;
-        // Atualiza o estado com o cardápio retornado, incluindo o ID gerado pelo servidor
         setCardapio(savedCardapio);
         alert(`Cardápio criado ${finalStatus === 'publicado' ? 'e publicado' : 'como ' + finalStatus}!`);
       }
-      onSaveSuccess(savedCardapio); // Notifica o componente pai sobre o sucesso
+      onSaveSuccess(savedCardapio);
     } catch (err: any) {
       console.error("Falha ao salvar cardápio:", err);
       const errorDetail = err.response?.data?.detail;
       let errorMessage = "Erro ao salvar cardápio.";
       if (typeof errorDetail === 'string') {
         errorMessage = errorDetail;
-      } else if (Array.isArray(errorDetail)) { // Erros de validação do Pydantic
+      } else if (Array.isArray(errorDetail)) {
         errorMessage = errorDetail.map(e => `${e.loc.join('.')} - ${e.msg}`).join('\n');
       }
       setError(errorMessage);
@@ -400,7 +393,7 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
                     return {
                         ...section,
                         items: section.items.map(item => item.id === editingItemId ? itemToSave : item)
-                                      .sort((a,b) => (a.ordem ?? 0) - (b.ordem ?? 0)),
+                                        .sort((a,b) => (a.ordem ?? 0) - (b.ordem ?? 0)),
                     };
                 }
                 return section;
@@ -419,7 +412,7 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
         } else { // Criando nova seção 'item' para este novo item
             const newSection: CardapioSecao = {
                 id: uuidv4(), tipo: 'item', ordem: cardapio.conteudo.length,
-                titulo: 'Nova Seção de Itens', // Ou pedir um título
+                titulo: 'Nova Seção de Itens',
                 items: [itemToSave].sort((a,b) => (a.ordem ?? 0) - (b.ordem ?? 0)),
             };
             setCardapio(prev => ({
@@ -437,7 +430,7 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
   const openEditItemModal = (item: CardapioItem, sectionId: string) => {
     setCurrentItemData({ ...item, tags: item.tags || [], alergenicos: item.alergenicos || [] });
     setEditingItemId(item.id);
-    setTargetSectionIdForModalItem(sectionId); // Importante para saber onde salvar
+    setTargetSectionIdForModalItem(sectionId);
     setShowItemModal(true);
   };
 
@@ -458,7 +451,7 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
   const handleGalleryImageChange = (index: number, field: keyof ImagemGaleria, value: string | number) => {
     if (editingElement && editingElement.type === 'galeria' && editingElement.currentConteudo.imagens) {
         const newImagens = [...editingElement.currentConteudo.imagens];
-        // @ts-ignore
+        // @ts-ignore // Permitir atribuição flexível
         newImagens[index] = { ...newImagens[index], [field]: value };
         setEditingElement(prev => prev ? ({ ...prev, currentConteudo: { ...prev.currentConteudo, imagens: newImagens }}) : null);
     }
@@ -499,20 +492,17 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
     }
   };
 
-
-  // --- Funções de Geração de PDF e QR Code (mantidas como no seu exemplo) ---
+  // --- Funções de Geração de PDF e QR Code ---
   const handleGeneratePdf = () => {
     const a = document.createElement('a');
     a.href = `${api.defaults.baseURL}cardapios/download/${cardapio.id}/pdf/`
     document.body.appendChild(a);
-
     a.click();
-
     document.body.removeChild(a);
   };
 
   const handleShowQrCode = (cardapioName: string) => {
-    const publicViewUrl = `${api.defaults.baseURL}cardapios/download/${cardapio.id}/pdf/`; // Exemplo de rota
+    const publicViewUrl = `${window.location.origin}/cardapio/ver/${cardapio.id}`; // Ajuste se sua rota pública for diferente
     setQrCodeValue(publicViewUrl);
     setCurrentCardapioNameForQr(cardapioName || "Cardápio");
     setShowQrModal(true);
@@ -520,7 +510,7 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
 
   const handleDownloadQrCode = () => {
     if (qrCodeRef.current) {
-        const canvas = qrCodeRef.current; //.querySelector('canvas'); // Se QRCodeCanvas renderiza um canvas interno
+        const canvas = qrCodeRef.current;
         if (canvas) {
             const pngUrl = canvas.toDataURL('image/png').replace('image/png', 'image/octet-stream');
             let downloadLink = document.createElement('a');
@@ -536,11 +526,58 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
     }
   };
 
+  // --- Funções para o ImageSelectorModal ---
+  const openImageSelector = (target: ImageTargetField) => {
+    setImageTarget(target);
+    setShowImageSelectorModal(true);
+  };
+
+  const handleImageSelectedFromModal = (imageUrl: string) => {
+    if (!imageTarget) return;
+
+    switch (imageTarget.type) {
+      case 'logoUrl':
+        setCardapio(prev => ({ ...prev, logoUrl: imageUrl }));
+        break;
+      case 'elementImagemUrl':
+        if (editingElement && editingElement.id === imageTarget.elementId && editingElement.type === 'imagem') {
+          handleEditingElementChange('imagemUrl', imageUrl);
+          setEditingElement(prev => prev ? ({ ...prev, currentImageFile: null }) : null);
+        }
+        break;
+      case 'itemImagemUrl':
+        setCurrentItemData(prev => ({ ...prev, imagemUrl: imageUrl }));
+        break;
+      case 'galeriaImagemUrl':
+        if (editingElement && editingElement.id === imageTarget.elementId && editingElement.type === 'galeria' && editingElement.currentConteudo.imagens) {
+            const newImagens = [...editingElement.currentConteudo.imagens];
+            // Tenta encontrar pelo ID da imagem da galeria primeiro
+            let imgIndex = newImagens.findIndex(img => img.id === imageTarget.imagemGaleriaId);
+            
+            // Se não encontrar pelo ID (pode ser uma imagem recém-adicionada sem ID persistido ainda), usa o índice
+            if (imgIndex === -1 && typeof imageTarget.index === 'number' && newImagens[imageTarget.index]) {
+                imgIndex = imageTarget.index;
+            }
+
+            if (imgIndex !== -1) {
+                newImagens[imgIndex] = { ...newImagens[imgIndex], url: imageUrl };
+                setEditingElement(prev => prev ? ({
+                    ...prev,
+                    currentConteudo: { ...prev.currentConteudo, imagens: newImagens }
+                }) : null);
+            }
+        }
+        break;
+    }
+    setShowImageSelectorModal(false);
+    setImageTarget(null);
+  };
+
   // --- Renderização ---
-  if (isLoading && !(cardapioId && cardapioId !== 'novo')) { // Mostra loading só ao carregar cardápio existente
+  if (isLoading && cardapioId && cardapioId !== 'novo') {
     return <Container><p>Carregando cardápio...</p></Container>;
   }
-  if (error) { // Mostra erro se houver
+  if (error) {
     return <Container><p style={{color: 'red'}}>Erro: {error}</p><Button onClick={onBack}>Voltar</Button></Container>;
   }
 
@@ -581,7 +618,27 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
             </select>
 
             <label htmlFor="logoUrl">URL do Logo (para PDF):</label>
-            <input type="text" id="logoUrl" name="logoUrl" placeholder="https://exemplo.com/logo.png ou Data URL" value={cardapio.logoUrl || ''} onChange={handleInputChange} disabled={isLoading}/>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+              <input
+                type="text"
+                id="logoUrl"
+                name="logoUrl"
+                placeholder="https://exemplo.com/logo.png ou Data URL"
+                value={cardapio.logoUrl || ''}
+                onChange={handleInputChange}
+                disabled={isLoading}
+                style={{ flexGrow: 1 }}
+              />
+              <Button
+                type="button"
+                onClick={() => openImageSelector({ type: 'logoUrl' })}
+                $variant="outline"
+                size="sm" // Adicionei size para consistência
+                disabled={isLoading}
+              >
+                Selecionar
+              </Button>
+            </div>
 
             <label htmlFor="informacoesAdicionais">Informações Adicionais (para PDF, ex: Wi-Fi, contato):</label>
             <textarea id="informacoesAdicionais" name="informacoesAdicionais" value={cardapio.informacoesAdicionais || ''} onChange={handleInputChange} rows={2} disabled={isLoading}/>
@@ -603,18 +660,18 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
             </Toolbar>
 
             <DragDropContext onDragEnd={handleOnDragEnd}>
-              <Droppable droppableId="conteudoCardapio" isDropDisabled={false} isCombineEnabled={true} ignoreContainerClipping={false}>
+              <Droppable droppableId="conteudoCardapio" isDropDisabled={isLoading}>
                 {(provided) => (
                   <div {...provided.droppableProps} ref={provided.innerRef}>
                     {cardapio.conteudo.sort((a,b) => a.ordem - b.ordem).map((section, index) => (
-                      <Draggable key={section.id} draggableId={section.id} index={index}>
+                      <Draggable key={section.id} draggableId={section.id} index={index} isDragDisabled={isLoading}>
                         {(providedDraggable) => (
                           <ContentElement
                             ref={providedDraggable.innerRef}
                             {...providedDraggable.draggableProps}
                           >
                             <ElementControls>
-                              <div {...providedDraggable.dragHandleProps} style={{ cursor: 'grab', padding: '5px' }} title="Arrastar para Reordenar">
+                              <div {...providedDraggable.dragHandleProps} style={{ cursor: isLoading ? 'not-allowed' : 'grab', padding: '5px' }} title="Arrastar para Reordenar">
                                 <FaBars />
                               </div>
                               <IconButton size={20} onClick={() => openEditElementModal(section)} title="Editar Seção" $variant="info" disabled={isLoading}>
@@ -690,7 +747,7 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
                                 <div>
                                   <h4>Galeria: {section.titulo}</h4>
                                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center' }}>
-                                    {(section as SecaoGaleria).imagens.map(img => (
+                                    {(section as SecaoGaleria).imagens.sort((a,b) => (a.ordem ?? 0) - (b.ordem ?? 0)).map(img => (
                                       <div key={img.id} style={{ textAlign: 'center'}}>
                                         <img src={img.url} alt={img.legenda || 'Imagem da galeria'} style={{ width: '150px', height: '100px', objectFit: 'cover', border: '1px solid #ddd', borderRadius: '4px' }}/>
                                         {img.legenda && <p style={{fontSize: '0.8em', marginTop: '4px'}}>{img.legenda}</p>}
@@ -703,7 +760,7 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
                               {section.tipo === 'faq' && (
                                 <div>
                                   <h4>FAQ: {section.titulo}</h4>
-                                  {(section as SecaoFaq).itensFaq.map(item => (
+                                  {(section as SecaoFaq).itensFaq.sort((a,b) => (a.ordem ?? 0) - (b.ordem ?? 0)).map(item => (
                                     <details key={item.id} style={{ marginBottom: '10px', border: '1px solid #eee', padding: '10px', borderRadius: '4px' }}>
                                       <summary style={{ fontWeight: 'bold', cursor: 'pointer' }}>{item.pergunta}</summary>
                                       <p style={{marginTop: '5px', paddingLeft: '10px'}}>{item.resposta}</p>
@@ -730,17 +787,17 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
         </ContentBuilderArea>
 
         <PdfButtonWrapper>
-            <Button $variant="primary" onClick={handleGeneratePdf} disabled={isLoading}>
+            <Button $variant="primary" onClick={handleGeneratePdf} disabled={isLoading || !cardapio.id || cardapio.id === 'novo'}>
                 <FaFilePdf style={{ marginRight: '8px' }} /> Gerar PDF (Cliente)
             </Button>
-            <IconButton onClick={() => handleShowQrCode(cardapio.nome)} title="Gerar QR Code para Link do Cardápio" disabled={isLoading}>
+            <IconButton onClick={() => handleShowQrCode(cardapio.nome)} title="Gerar QR Code para Link do Cardápio" disabled={isLoading || !cardapio.id || cardapio.id === 'novo'}>
                 <FaQrcode />
             </IconButton>
         </PdfButtonWrapper>
 
-        {/* Modais (QR Code, Item, Edit Element) */}
+        {/* Modais */}
         {showQrModal && (
-            <GlobalModal> {/* Usando GlobalModal */}
+            <GlobalModal>
                 <GlobalModalContent style={{ textAlign: 'center' }}>
                     <h3>QR Code para: {currentCardapioNameForQr}</h3>
                     <p style={{marginBottom: 'var(--spacing-md)', fontSize: '0.9em', wordBreak: 'break-all'}}>
@@ -759,8 +816,8 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
         )}
 
         {showItemModal && (
-            <GlobalModal> {/* Usando GlobalModal */}
-                <GlobalModalContent> {/* Ajustar o estilo max-width se necessário */}
+            <GlobalModal>
+                <GlobalModalContent>
                     <h3>{editingItemId ? 'Editar Item' : 'Adicionar Novo Item'}</h3>
                     <FormSection style={{border: 'none', padding: 0}}>
                         <label htmlFor="itemName">Nome:</label>
@@ -773,7 +830,25 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
                         <input type="number" id="itemPreco" name="preco" value={currentItemData.preco ?? ''} onChange={handleItemFormChange} step="0.01" required />
 
                         <label htmlFor="itemImagemUrl">URL da Imagem do Item:</label>
-                        <input type="text" id="itemImagemUrl" name="imagemUrl" placeholder="https://... ou Data URL" value={currentItemData.imagemUrl || ''} onChange={handleItemFormChange} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                          <input
+                            type="text"
+                            id="itemImagemUrl"
+                            name="imagemUrl"
+                            placeholder="https://... ou Data URL"
+                            value={currentItemData.imagemUrl || ''}
+                            onChange={handleItemFormChange}
+                            style={{ flexGrow: 1 }}
+                          />
+                          <Button
+                            type="button"
+                            onClick={() => openImageSelector({ type: 'itemImagemUrl', itemId: editingItemId || undefined })}
+                            $variant="outline"
+                            size="sm"
+                          >
+                            Selecionar
+                          </Button>
+                        </div>
 
                         <label htmlFor="itemTags">Tags (separadas por vírgula):</label>
                         <input type="text" id="itemTags" name="tags" value={Array.isArray(currentItemData.tags) ? currentItemData.tags.join(', ') : ''} onChange={handleItemFormChange} />
@@ -799,9 +874,20 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
             </GlobalModal>
         )}
 
+        {showImageSelectorModal && ( // Corrigido: usar showImageSelectorModal e não isOpen diretamente
+          <ImageSelectorModal
+            isOpen={showImageSelectorModal} // Passa o estado para controlar a visibilidade
+            onClose={() => {
+              setShowImageSelectorModal(false);
+              setImageTarget(null);
+            }}
+            onImageSelect={handleImageSelectedFromModal}
+          />
+        )}
+
         {showEditElementModal && editingElement && (
-            <GlobalModal> {/* Usando GlobalModal */}
-                <GlobalModalContent> {/* Ajustar o estilo max-width se necessário */}
+            <GlobalModal>
+                <GlobalModalContent>
                     <h3>Editando Seção: {editingElement.type.charAt(0).toUpperCase() + editingElement.type.slice(1)}</h3>
                     <FormSection style={{border: 'none', padding: 0, maxHeight: '70vh', overflowY: 'auto' }}>
                         {!['divisor', 'espacador'].includes(editingElement.type) && (
@@ -822,14 +908,31 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
                             <>
                             <label>Conteúdo do Texto:</label>
                             <ReactQuill theme="snow" value={editingElement.currentConteudo.texto || ''}
-                                onChange={(content) => handleEditingElementChange('texto', content)} style={{ maxWidth: '400px', position: 'relative' }} />
+                                onChange={(content) => handleEditingElementChange('texto', content)} 
+                                style={{ backgroundColor: 'white', color: 'black' }} // Para garantir visibilidade em temas escuros
+                                />
                             </>
                         )}
                         {editingElement.type === 'imagem' && (
                             <>
                             <label htmlFor="elementImageUrl">URL da Imagem:</label>
-                            <input type="text" id="elementImageUrl" value={editingElement.currentConteudo.imagemUrl || ''}
-                                onChange={(e) => handleEditingElementChange('imagemUrl', e.target.value)} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                              <input
+                                type="text"
+                                id="elementImageUrl"
+                                value={editingElement.currentConteudo.imagemUrl || ''}
+                                onChange={(e) => handleEditingElementChange('imagemUrl', e.target.value)}
+                                style={{ flexGrow: 1 }}
+                              />
+                              <Button
+                                type="button"
+                                onClick={() => openImageSelector({ type: 'elementImagemUrl', elementId: editingElement.id })}
+                                $variant="outline"
+                                size="sm"
+                              >
+                                Selecionar
+                              </Button>
+                            </div>
                             <label htmlFor="elementImageFile">Ou envie uma nova imagem (substitui URL):</label>
                             <input type="file" id="elementImageFile" accept="image/*" onChange={handleImageFileChange} />
                             {(editingElement.currentConteudo.imagemUrl || editingElement.currentImageFile) && (
@@ -882,16 +985,34 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
                             <>
                                 <h4>Imagens da Galeria:</h4>
                                 {editingElement.currentConteudo.imagens?.map((img, index) => (
-                                    <div key={img.id} style={{ border: '1px solid #ddd', padding: '15px', marginBottom: '15px', borderRadius: '4px' }}>
-                                        <label htmlFor={`galleryImageUrl_${img.id}`}>URL da Imagem {index + 1}:</label>
+                                    <div key={img.id || `new_gal_img_${index}`} style={{ border: '1px solid #ddd', padding: '15px', marginBottom: '15px', borderRadius: '4px' }}>
+                                        <label htmlFor={`galleryImageUrl_${img.id || index}`}>URL da Imagem {index + 1}:</label>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: '5px' }}>
+                                          <input
+                                              type="text"
+                                              id={`galleryImageUrl_${img.id || index}`}
+                                              placeholder="https://exemplo.com/imagem.jpg"
+                                              value={img.url}
+                                              onChange={(e) => handleGalleryImageChange(index, 'url', e.target.value)}
+                                              style={{ flexGrow: 1 }}
+                                          />
+                                          <Button
+                                              type="button"
+                                              onClick={() => openImageSelector({
+                                                type: 'galeriaImagemUrl',
+                                                elementId: editingElement.id,
+                                                imagemGaleriaId: img.id,
+                                                index: index
+                                              })}
+                                              $variant="outline"
+                                              size="sm"
+                                          >
+                                              Selecionar
+                                          </Button>
+                                        </div>
+                                        <label htmlFor={`galleryImageLegenda_${img.id || index}`}>Legenda {index + 1} (opcional):</label>
                                         <input
-                                            type="text" id={`galleryImageUrl_${img.id}`} placeholder="https://exemplo.com/imagem.jpg"
-                                            value={img.url} onChange={(e) => handleGalleryImageChange(index, 'url', e.target.value)}
-                                            style={{marginBottom: '5px'}}
-                                        />
-                                        <label htmlFor={`galleryImageLegenda_${img.id}`}>Legenda {index + 1} (opcional):</label>
-                                        <input
-                                            type="text" id={`galleryImageLegenda_${img.id}`} value={img.legenda || ''}
+                                            type="text" id={`galleryImageLegenda_${img.id || index}`} value={img.legenda || ''}
                                             onChange={(e) => handleGalleryImageChange(index, 'legenda', e.target.value)}
                                             style={{marginBottom: '10px'}}
                                         />
@@ -908,7 +1029,7 @@ const ConstrutorCardapio: React.FC<ConstrutorCardapioProps> = ({ cardapioId, onS
                             </>
                         )}
                         {editingElement.type === 'faq' && (
-                             <>
+                                <>
                                 <h4>Itens de Perguntas Frequentes:</h4>
                                 {editingElement.currentConteudo.itensFaq?.map((item, index) => (
                                     <div key={item.id} style={{ border: '1px solid #ddd', padding: '15px', marginBottom: '15px', borderRadius: '4px' }}>

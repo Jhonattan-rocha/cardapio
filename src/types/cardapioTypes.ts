@@ -122,6 +122,7 @@ export interface FaqItem {
   id: string;
   pergunta: string;
   resposta: string;
+  ordem?: number;
 }
 export interface SecaoFaq extends CardapioSecaoBase {
   tipo: 'faq';
