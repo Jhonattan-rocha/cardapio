@@ -4,10 +4,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
 import type { Cardapio } from '../types/cardapioTypes'; // Atualizado
 import { Button, IconButton } from '../components/common/Buttun'; // Verifique o nome do arquivo
-import { FaEdit, FaTrashAlt, FaPlus, FaFilePdf } from 'react-icons/fa';
+import { FaEdit, FaTrashAlt, FaPlus, FaFilePdf, FaImage } from 'react-icons/fa';
 import { useSelector } from 'react-redux';
 import type { AuthState } from '../store/modules/types'; // Ajuste o caminho se necessário
 import api from '../services/axios'; // Seu serviço Axios configurado
+import { useNavigate } from 'react-router-dom';
 
 // --- Styled Components (mantidos como no seu exemplo) ---
 const Container = styled.div`
@@ -95,6 +96,7 @@ const GerenciamentoCardapios: React.FC<GerenciamentoCardapiosProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const auth = useSelector((state: { authreducer: AuthState }) => state.authreducer);
+  const navigate = useNavigate();
 
   const fetchCardapios = useCallback(async () => {
     if (!auth.isLoggedIn || !auth.user) {
@@ -198,6 +200,9 @@ const GerenciamentoCardapios: React.FC<GerenciamentoCardapiosProps> = ({
         <h1>Gerenciamento de Cardápios</h1>
         <Button $variant="primary" onClick={onAddCardapio} disabled={isLoading}>
           <FaPlus style={{ marginRight: '8px' }} /> Adicionar Novo Cardápio
+        </Button>
+        <Button $variant="primary" onClick={() => navigate("/image")} disabled={isLoading}>
+          <FaImage style={{ marginRight: '8px' }} /> Imagens
         </Button>
       </Header>
 

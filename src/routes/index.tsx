@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Route, Routes, useNavigate } from 'react-router-dom';
+import GerenciamentoImagens from '../screens/GerenciamentoImagens';
 import GerenciamentoCardapios from '../screens/GerenciamentoCardapios';
 import ConstrutorCardapio from '../screens/ConstrutorCardapio';
 import LoginScreen from '../screens/LoginCardapio';
@@ -44,6 +45,7 @@ const Router: React.FC = () => {
           onAddCardapio={handleAddCardapio}
           onEditCardapio={handleEditCardapio}
         />}/>
+        <Route path='/image' index element={<GerenciamentoImagens />} />
         <Route path='/create' element={<ConstrutorCardapio
             cardapioId={selectedCardapioId}
             onSaveSuccess={handleSaveCardapio}
